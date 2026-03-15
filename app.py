@@ -134,24 +134,24 @@ if prompt:
 
     else:
 
-        system_prompt = """
-You are a friendly nutrition assistant helping families using a food pantry.
-
-Suggest simple meals using pantry foods like:
-rice, beans, pasta, canned vegetables, oats, peanut butter, tuna.
-
-Use simple language.
-Be supportive and realistic.
-"""
-
+        # Use clear labels so the model knows its role
+        formatted_prompt = f"Instructions: {system_prompt}\n\nUser Question: {prompt}\n\nAssistant Answer:"
+    
         response = model(
-            system_prompt + prompt,
-            max_length=200,
+            formatted_prompt,
+            max_new_tokens=100, # Use max_new_tokens instead of max_length
             do_sample=True,
-            temperature=0.7
+            temperature=0.7,
+            clean_up_tokenization_spaces=True
         )
-
-        answer = response[0]["generated_text"]
+    
+        full_text = response[0]["generated_text"]
+        
+        # Logic to remove the prompt from the response if it's included
+        if full_text.startswith(formatted_prompt):
+            answer = full_text[len(formatted_prompt):].strip()
+        else:
+            answer = full_text.strip()
 
     with st.chat_message("assistant"):
         st.write(answer)

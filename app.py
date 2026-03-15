@@ -35,7 +35,7 @@ def load_model():
     
     # Pass the objects directly into the pipeline
     generator = pipeline(
-        "text2text-generation", 
+        "text-generation", 
         model=model_obj, 
         tokenizer=tokenizer
     )
@@ -150,7 +150,13 @@ Use simple language."""
         formatted_prompt = f"Context: {system_prompt}\n\nQuestion: {prompt}\n\nAnswer:"
 
         # Call the model
-        response = model(formatted_prompt, max_new_tokens=100)
+        response = model(
+            input_text,
+            max_new_tokens=100,
+            do_sample=True,
+            temperature=0.7,
+            clean_up_tokenization_spaces=True
+        )
 
         #Simplified extraction: Seq2Seq models don't return the prompt
         answer = response[0]["generated_text"].strip()

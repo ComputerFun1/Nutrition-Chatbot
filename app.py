@@ -156,6 +156,8 @@ Use simple language."""
             formatted_prompt,
             generation_config=gen_config
         )
+
+        full_text = response[0]["generated_text"]
         
         # Logic to remove the prompt from the response if it's included
         if full_text.startswith(formatted_prompt):

@@ -29,8 +29,8 @@ st.caption(
 @st.cache_resource
 def load_model():
     generator = pipeline(
-        "text2text-generation",
-        model="google/flan-t5-base"
+        "text-generation",
+        model="google/flan-t5-small"
     )
     return generator
 

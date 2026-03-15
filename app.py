@@ -41,6 +41,8 @@ def load_model():
     )
     return generator
 
+model = load_model()
+
 # --------------------
 # SUGGESTED MEAL BUTTONS
 # --------------------

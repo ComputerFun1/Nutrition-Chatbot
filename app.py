@@ -134,6 +134,11 @@ if prompt:
 
     else:
 
+        system_prompt = """You are a friendly nutrition assistant helping families using a food pantry.
+
+Suggest simple healthy meals using pantry foods like: rice, beans, pasta, canned vegetables, oats, peanut butter, tuna.
+
+Use simple language."""
         # Use clear labels so the model knows its role
         formatted_prompt = f"Instructions: {system_prompt}\n\nUser Question: {prompt}\n\nAssistant Answer:"
     

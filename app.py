@@ -29,7 +29,7 @@ st.caption(
 @st.cache_resource
 def load_model():
     generator = pipeline(
-        "text-generation",
+        "text2text-generation",  
         model="google/flan-t5-small"
     )
     return generator
@@ -139,31 +139,23 @@ if prompt:
 Suggest simple healthy meals using pantry foods like: rice, beans, pasta, canned vegetables, oats, peanut butter, tuna.
 
 Use simple language."""
-        # Use clear labels so the model knows its role
-        formatted_prompt = f"Instructions: {system_prompt}\n\nUser Question: {prompt}\n\nAssistant Answer:"
-    
-        # Define the config explicitly to avoid the deprecation warning
-        gen_config = GenerationConfig(
+# T5 is very sensitive to structure; use "Answer this question:" 
+        formatted_prompt = f"Context: {system_prompt}\n\nQuestion: {prompt}\n\nAnswer:"
+
+        # Call the model
+        response = model(
+            formatted_prompt,
             max_new_tokens=100,
             do_sample=True,
             temperature=0.7,
-            # This helps suppress the 'max_length' default warning
-            eos_token_id=model.tokenizer.eos_token_id,
-            pad_token_id=model.tokenizer.pad_token_id
-        )
-    
-        response = model(
-            formatted_prompt,
-            generation_config=gen_config
         )
 
-        full_text = response[0]["generated_text"]
-        
-        # Logic to remove the prompt from the response if it's included
-        if full_text.startswith(formatted_prompt):
-            answer = full_text[len(formatted_prompt):].strip()
-        else:
-            answer = full_text.strip()
+        #Simplified extraction: Seq2Seq models don't return the prompt
+        answer = response[0]["generated_text"].strip()
+
+        # If the model returns nothing, provide a fallback
+        if not answer:
+            answer = "I'm sorry, I couldn't generate a suggestion. Could you try rephrasing?"
 
     with st.chat_message("assistant"):
         st.write(answer)

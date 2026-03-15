@@ -1,5 +1,5 @@
 import streamlit as st
-from transformers import pipeline
+from transformers import pipeline, GenerationConfig
 from recipes import PANTRY_RECIPES
 from guardrails import check_guardrails
 

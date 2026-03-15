@@ -1,5 +1,5 @@
 import streamlit as st
-from transformers import pipeline, GenerationConfig
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 from recipes import PANTRY_RECIPES
 from guardrails import check_guardrails
 
@@ -28,13 +28,18 @@ st.caption(
 
 @st.cache_resource
 def load_model():
+    model_id = "google/flan-t5-small"
+    # Explicitly load the model and tokenizer classes
+    model_obj = AutoModelForSeq2SeqLM.from_pretrained(model_id)
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    
+    # Pass the objects directly into the pipeline
     generator = pipeline(
-        "text2text-generation",  
-        model="google/flan-t5-small"
+        "text2text-generation", 
+        model=model_obj, 
+        tokenizer=tokenizer
     )
     return generator
-
-model = load_model()
 
 # --------------------
 # SUGGESTED MEAL BUTTONS
@@ -143,12 +148,7 @@ Use simple language."""
         formatted_prompt = f"Context: {system_prompt}\n\nQuestion: {prompt}\n\nAnswer:"
 
         # Call the model
-        response = model(
-            formatted_prompt,
-            max_new_tokens=100,
-            do_sample=True,
-            temperature=0.7,
-        )
+        response = model(formatted_prompt, max_new_tokens=100)
 
         #Simplified extraction: Seq2Seq models don't return the prompt
         answer = response[0]["generated_text"].strip()

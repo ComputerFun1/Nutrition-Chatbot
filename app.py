@@ -140,30 +140,29 @@ if prompt:
         )
 
     else:
-
-        system_prompt = """You are a friendly nutrition assistant helping families using a food pantry.
-
-Suggest simple healthy meals using pantry foods like: rice, beans, pasta, canned vegetables, oats, peanut butter, tuna.
-
-Use simple language."""
-# T5 is very sensitive to structure; use "Answer this question:" 
-        formatted_prompt = f"Context: {system_prompt}\n\nQuestion: {prompt}\n\nAnswer:"
-
-        # Call the model
-        response = model(
-            input_text,
-            max_new_tokens=100,
-            do_sample=True,
-            temperature=0.7,
-            clean_up_tokenization_spaces=True
+        # 1. Define the system instructions
+        system_prompt = (
+            "You are a friendly nutrition assistant. "
+            "Suggest simple healthy meals using pantry foods like rice, beans, pasta, "
+            "canned vegetables, oats, peanut butter, and tuna."
         )
+        
+        # 2. CREATE the input_text variable here (This fixes the NameError)
+        input_text = f"Answer the following nutrition question. Context: {system_prompt} Question: {prompt}"
 
-        #Simplified extraction: Seq2Seq models don't return the prompt
-        answer = response[0]["generated_text"].strip()
-
-        # If the model returns nothing, provide a fallback
-        if not answer:
-            answer = "I'm sorry, I couldn't generate a suggestion. Could you try rephrasing?"
+        # 3. Now pass that variable to the model
+        with st.spinner("Thinking..."):
+            response = model(
+                input_text,  
+                max_new_tokens=100,
+                do_sample=True,
+                temperature=0.7
+            )
+            
+            answer = response[0]["generated_text"].strip()
+            
+            if not answer:
+                answer = "I'm sorry, I couldn't think of a suggestion. Could you try rephrasing?"
 
     with st.chat_message("assistant"):
         st.write(answer)

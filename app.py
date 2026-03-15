@@ -142,15 +142,20 @@ Use simple language."""
         # Use clear labels so the model knows its role
         formatted_prompt = f"Instructions: {system_prompt}\n\nUser Question: {prompt}\n\nAssistant Answer:"
     
-        response = model(
-            formatted_prompt,
-            max_new_tokens=100, # Use max_new_tokens instead of max_length
+        # Define the config explicitly to avoid the deprecation warning
+        gen_config = GenerationConfig(
+            max_new_tokens=100,
             do_sample=True,
             temperature=0.7,
-            clean_up_tokenization_spaces=True
+            # This helps suppress the 'max_length' default warning
+            eos_token_id=model.tokenizer.eos_token_id,
+            pad_token_id=model.tokenizer.pad_token_id
         )
     
-        full_text = response[0]["generated_text"]
+        response = model(
+            formatted_prompt,
+            generation_config=gen_config
+        )
         
         # Logic to remove the prompt from the response if it's included
         if full_text.startswith(formatted_prompt):

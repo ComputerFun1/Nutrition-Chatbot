@@ -177,6 +177,8 @@ if prompt:
                 response = model(
                     formatted_prompt,
                     max_new_tokens=256, # Increased from 100 for better explanations
+                    # Explicitly override the default max_length warning
+                    max_length=None,
                     do_sample=True,
                     temperature=0.7,
                     top_p=0.9,

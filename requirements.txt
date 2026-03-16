@@ -1,6 +1,2 @@
 streamlit
-transformers
-torch
-sentencepiece
-accelerate
 requests

@@ -174,10 +174,15 @@ if user_input:
 
             if chunks:
                 for chunk in chunks:
-                    # Extraction logic as per documentation loop
-                    content = chunk["choices"][0]["delta"].get("content", "")
-                    full_response += content
-                    response_placeholder.markdown(full_response + "▌")
+                    # Check if 'choices' exists and has at least one item
+                    if "choices" in chunk and len(chunk["choices"]) > 0:
+                        # Extract content safely
+                        delta = chunk["choices"][0].get("delta", {})
+                        content = delta.get("content", "")
+                        
+                        if content:
+                            full_response += content
+                            response_placeholder.markdown(full_response + "▌")
                 
                 response_placeholder.markdown(full_response)
                 st.session_state.messages.append({"role": "assistant", "content": full_response})

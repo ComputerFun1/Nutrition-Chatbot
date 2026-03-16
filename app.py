@@ -34,7 +34,7 @@ API_URL = "https://router.huggingface.co/v1/chat/completions"
 if "HF_TOKEN" in st.secrets:
     headers = {
         "Authorization": f"Bearer {st.secrets['HF_TOKEN']}",
-        "Content-Type": "application/json"
+       
     }
 else:
     st.error("Missing HF_TOKEN! Go to Settings > Secrets and add: HF_TOKEN = 'your_token'")

@@ -19,7 +19,7 @@ st.write(
 )
 
 st.caption(
-"This information is for general nutrition education and is not medical advice."
+"Disclaimer: This information is for general nutrition education and is not medical advice."
 )
 
 # --------------------
@@ -28,12 +28,17 @@ st.caption(
 
 @st.cache_resource
 def load_model():
-    model_id = "google/flan-t5-small"
-    # Explicitly load the model and tokenizer classes
-    model_obj = AutoModelForSeq2SeqLM.from_pretrained(model_id)
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    # Using the 1.5B Instruct version for best balance of memory and logic
+    model_id = "Qwen/Qwen2.5-1.5B-Instruct" 
     
-    # Pass the objects directly into the pipeline
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    # Use 4-bit or 8-bit here if you have bitsandbytes installed to save even more RAM
+    model_obj = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        torch_dtype="auto",
+        device_map="auto"
+    )
+    
     generator = pipeline(
         "text-generation", 
         model=model_obj, 
@@ -107,15 +112,14 @@ st.subheader("Ask the Nutrition Assistant")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+#Display chat history
 for msg in st.session_state.messages:
-
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
 prompt = st.chat_input("Ask about meals or pantry foods")
 
 if prompt:
-
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.chat_message("user"):
@@ -125,7 +129,6 @@ if prompt:
     safety = check_guardrails(prompt)
 
     if safety == "medical":
-
         answer = (
             "I can only provide general nutrition information. "
             "For medical advice, please speak with a healthcare professional.\n\n"
@@ -133,38 +136,49 @@ if prompt:
         )
 
     elif safety == "diet":
-
         answer = (
             "I focus on balanced and healthy eating. Extreme dieting or food restriction "
             "can be harmful. Try focusing on balanced meals with the foods you have available."
         )
 
     else:
-        # 1. Define the system instructions
-        system_prompt = (
-            "You are a friendly nutrition assistant. "
-            "Suggest simple healthy meals using pantry foods like rice, beans, pasta, "
-            "canned vegetables, oats, peanut butter, and tuna."
-        )
-        
-        # 2. CREATE the input_text variable here (This fixes the NameError)
-        input_text = f"Answer the following nutrition question. Context: {system_prompt} Question: {prompt}"
-
-        # 3. Now pass that variable to the model
-        with st.spinner("Thinking..."):
-            response = model(
-                input_text,  
-                max_new_tokens=100,
-                do_sample=True,
-                temperature=0.7
+            # 1. DEFINE SYSTEM PROMPT (The "Brain" of the bot)
+            system_instruction = (
+                "You are a precise, evidence-based Nutrition Intelligence Assistant. "
+                "Suggest simple healthy meals using pantry foods. "
+                "Safety: If medical conditions are mentioned, provide a disclaimer. "
+                "Precision: Use 4 kcal/g for protein/carbs and 9 kcal/g for fats if calculating. "
+                "Format: Start with a 1-sentence Summary, then a bulleted Breakdown, then a brief 'Why'."
             )
+    
+            # 2. BUILD CHAT TEMPLATE (Qwen specific format)
+            messages = [
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": prompt}
+            ]
             
-            answer = response[0]["generated_text"].strip()
-            
-            if not answer:
-                answer = "I'm sorry, I couldn't think of a suggestion. Could you try rephrasing?"
-
+            # Apply the chat template for better instruction following
+            formatted_prompt = model.tokenizer.apply_chat_template(
+                messages, 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
+    
+            with st.spinner("Analyzing nutrition data..."):
+                response = model(
+                    formatted_prompt,
+                    max_new_tokens=256, # Increased from 100 for better explanations
+                    do_sample=True,
+                    temperature=0.7,
+                    top_p=0.9,
+                    pad_token_id=model.tokenizer.eos_token_id
+                )
+                
+                # Extract only the newly generated text
+                full_text = response[0]["generated_text"]
+                answer = full_text.split("<|im_start|>assistant\n")[-1].strip()
+    
     with st.chat_message("assistant"):
         st.write(answer)
-
+    
     st.session_state.messages.append({"role": "assistant", "content": answer})

@@ -34,11 +34,19 @@ def load_model():
     
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     # Use 4-bit or 8-bit here if you have bitsandbytes installed to save even more RAM
-    model_obj = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        torch_dtype="auto",
-        device_map="auto"
-    )
+    try:
+        # Try loading with accelerate magic
+        model_obj = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            torch_dtype="auto",
+            device_map="auto"
+        )
+    except ValueError:
+        # Fallback for environments without accelerate
+        model_obj = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            torch_dtype="auto"
+        )
     
     generator = pipeline(
         "text-generation", 

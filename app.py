@@ -1,5 +1,6 @@
 import streamlit as st
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+import torch
 from recipes import PANTRY_RECIPES
 from guardrails import check_guardrails
 

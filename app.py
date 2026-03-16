@@ -1,5 +1,5 @@
 import streamlit as st
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from recipes import PANTRY_RECIPES
 from guardrails import check_guardrails
 

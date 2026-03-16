@@ -26,56 +26,32 @@ st.caption(
 # --------------------
 # CONFIG & API SETUP
 # --------------------
-
-# Hugging Face OpenAI-compatible API URL
+# FOLLOWING DOCUMENTATION EXACTLY
 API_URL = "https://router.huggingface.co/v1/chat/completions"
 
-# Check for HF_TOKEN in Streamlit Secrets
 if "HF_TOKEN" in st.secrets:
     headers = {
         "Authorization": f"Bearer {st.secrets['HF_TOKEN']}",
-       
     }
 else:
-    st.error("Missing HF_TOKEN! Go to Settings > Secrets and add: HF_TOKEN = 'your_token'")
+    st.error("Missing HF_TOKEN in Secrets!")
     st.stop()
 
-def get_streaming_response(messages):
-    """Sends a request to HF and yields content chunks for Streamlit."""
-    payload = {
-        "model": "Qwen/Qwen2.5-1.5B-Instruct",
-        "messages": messages,
-        "stream": True,
-        "max_tokens": 500,
-        "temperature": 0.7
-    }
+def query(payload):
+    # Following the doc's stream=True logic
+    response = requests.post(API_URL, headers=headers, json=payload, stream=True)
+    # Basic error handling to catch the 400 error before the loop
+    if response.status_code != 200:
+        st.error(f"API Error {response.status_code}: {response.text}")
+        return
 
-    try:
-        response = requests.post(API_URL, headers=headers, json=payload, stream=True)
-        response.raise_for_status()
-
-        for line in response.iter_lines():
-            if not line:
-                continue
-            
-            line_str = line.decode("utf-8")
-            
-            if line_str.startswith("data: "):
-                data_content = line_str[6:].strip()
-                
-                if data_content == "[DONE]":
-                    break
-                
-                try:
-                    chunk = json.loads(data_content)
-                    content = chunk["choices"][0].get("delta", {}).get("content", "")
-                    if content:
-                        yield content
-                except json.JSONDecodeError:
-                    continue
-                    
-    except Exception as e:
-        yield f"⚠️ Connection Error: {str(e)}"
+    for line in response.iter_lines():
+        if not line.startswith(b"data:"):
+            continue
+        if line.strip() == b"data: [DONE]":
+            return
+        # Yielding the json decode as per documentation
+        yield json.loads(line.decode("utf-8").lstrip("data:").rstrip("\n"))
 
 # --------------------
 # SUGGESTED MEAL BUTTONS
@@ -180,21 +156,28 @@ if user_input:
             "Output Format: Start with a 1-sentence Summary, then a bulleted Breakdown, then a brief 'Why'."
         )
         
-        # Prepare the messages list for the streaming API
-        api_messages = [{"role": "system", "content": system_instruction}]
-        # Add history to context
+        # Build the message history for the payload
+        messages_for_api = [{"role": "system", "content": system_instruction}]
         for m in st.session_state.messages:
-            api_messages.append(m)
+            messages_for_api.append(m)
 
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
             full_response = ""
             
-            # Start streaming
-            for chunk in get_streaming_response(api_messages):
-                full_response += chunk
-                response_placeholder.markdown(full_response + "▌")
-            
-            response_placeholder.markdown(full_response)
-        
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+            # CALLING THE EXACT PAYLOAD STRUCTURE FROM DOCS
+            chunks = query({
+                "messages": messages_for_api,
+                "model": "Qwen/Qwen2.5-1.5B-Instruct:featherless-ai",
+                "stream": True,
+            })
+
+            if chunks:
+                for chunk in chunks:
+                    # Extraction logic as per documentation loop
+                    content = chunk["choices"][0]["delta"].get("content", "")
+                    full_response += content
+                    response_placeholder.markdown(full_response + "▌")
+                
+                response_placeholder.markdown(full_response)
+                st.session_state.messages.append({"role": "assistant", "content": full_response})

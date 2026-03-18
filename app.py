@@ -146,29 +146,39 @@ if active_mode:
                      "2. Choose appropriate cooking techniques.\n"
                      "3. Optimize for flavor, texture, and simplicity.\n\n"
             
-                     "OUTPUT FORMAT (STRICT):\n"
-                     "Recipe Name\n"
-                     "Servings: X\n"
-                     "Total Time: X minutes\n\n"
+                     "OUTPUT FORMAT (STRICT + STYLED):\n"
+
+                    "🍽️ **Recipe Name**\n"
+                    "_Short, appealing one-line description_\n\n"
             
-                     "Tools Needed:\n"
-                     "- tool 1\n"
-                     "- tool 2\n\n"
+                    "⏱️ **Details**\n"
+                    "- Servings: X\n"
+                    "- Total Time: X minutes\n\n"
             
-                     "Ingredients:\n"
-                     "- ingredient with exact quantity\n\n"
+                    "🔧 **Tools Needed**\n"
+                    "- Tool 1\n"
+                    "- Tool 2\n\n"
             
-                     "Instructions:\n"
-                     "1. Step with specific action + technique + time (e.g., sauté onions until translucent, ~4 minutes)\n"
-                     "2. Continue step-by-step with precise timing and detail\n\n"
+                    "🧂 **Ingredients**\n"
+                    "- Ingredient — exact quantity\n"
+                    "- Ingredient — exact quantity\n\n"
             
-                     "Chef Tips:\n"
-                     "- 1–2 short expert tips to improve the dish\n\n"
+                    "👨‍🍳 **Instructions**\n"
+                    "1. Start with a strong action verb (e.g., 'Heat', 'Sauté', 'Whisk')\n"
+                    "2. Include precise technique + timing + sensory cue\n"
+                    "   (e.g., 'Sauté onions until translucent, about 4 minutes')\n"
+                    "3. Keep steps short (1–2 lines max each)\n\n"
             
-                     "STYLE RULES:\n"
-                     "- Be concise but precise\n"
-                     "- Use exact times, temperatures, and textures\n"
-                     "- No vague instructions (avoid 'cook until done')\n"
+                    "💡 **Chef Tips**\n"
+                    "- Tip to enhance flavor or texture\n"
+                    "- Optional variation or substitution\n\n"
+            
+                    "STYLE RULES:\n"
+                    "- Use emojis ONLY for section headers\n"
+                    "- Bold all section titles\n"
+                    "- Use clean spacing between sections\n"
+                    "- Avoid long paragraphs\n"
+                    "- Be vivid but concise (engaging, not wordy)\n"
         )
     else: #Nutrition Assistant          
         system_instruction = (
@@ -198,21 +208,29 @@ if active_mode:
                     "2. Select nutritionally balanced foods\n"
                     "3. Estimate macros/calories if applicable\n\n"
                 
-                    "OUTPUT FORMAT (STRICT):\n"
-                    "Summary: (1 sentence)\n\n"
-                
-                    "Breakdown:\n"
-                    "- Key nutrients or foods\n"
-                    "- Estimated calories/macros (if applicable)\n"
-                    "- Meal suggestion(s)\n\n"
-                
-                    "Why It Works:\n"
-                    "- Brief scientific explanation (2–3 lines max)\n\n"
-                
+                    "OUTPUT FORMAT (STRICT + STYLED):\n"
+
+                    "🧾 **Summary**\n"
+                    "_One clear sentence answering the user’s need_\n\n"
+            
+                    "🥗 **Breakdown**\n"
+                    "- Key foods or nutrients\n"
+                    "- Estimated calories/macros (if relevant)\n"
+                    "- Simple meal suggestion(s)\n\n"
+            
+                    "⚖️ **Why It Works**\n"
+                    "- 2–3 short lines explaining the science simply\n\n"
+            
+                    "⚠️ **Note (if needed)**\n"
+                    "- Only include if medical/safety context applies\n\n"
+            
                     "STYLE RULES:\n"
-                    "- Clear, structured, and practical\n"
-                    "- No long paragraphs\n"
-                    "- Avoid jargon unless briefly explained\n"
+                    "- Use emojis ONLY in headers\n"
+                    "- Bold section titles\n"
+                    "- Use bullet points (no dense paragraphs)\n"
+                    "- Keep responses visually clean and scannable\n"
+                    "- Avoid jargon or briefly explain it\n"
+                    "- Keep tone supportive and confident\n"
         )
     
     # Build the message history for the payload

@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 import json
-from recipes import PANTRY_ITEMS
+from ingredients import PANTRY_ITEMS
 from guardrails import check_guardrails
 
 # --------------------

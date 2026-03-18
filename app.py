@@ -13,22 +13,7 @@ st.set_page_config(
     page_icon="🥗"
 )
 
-# --------------------
-# SIDEBAR - BOT SELECTION
-# --------------------
-with st.sidebar:
-    st.title("Settings")
-    bot_mode = st.radio(
-        "Choose Assistant Mode:",
-        ["Healthy Recipe Specialist", "Nutrition Assistant"],
-        help="Switch between getting detailed recipes or general nutrition advice."
-    )
-    
-    if st.button("Clear Chat"):
-        st.session_state.messages = []
-        st.rerun()
-
-st.title(f"🥗 {bot_mode}")
+st.title("🥗 Pantry Nutrition Assistant")
 
 # --------------------
 # CONFIG & API SETUP
@@ -62,26 +47,40 @@ def query(payload):
         yield json.loads(line.decode("utf-8").lstrip("data:").rstrip("\n"))
 
 # --------------------
-# INGREDIENT SELECTION (Scrollable)
+# INGREDIENT SELECTION
 # --------------------
-st.subheader("Available Pantry Items")
-st.caption("Click buttons to select items, then type your message below.")
-
 if "selected_ingredients" not in st.session_state:
     st.session_state.selected_ingredients = set()
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Native Streamlit scrollable container
-with st.container(height=300):
+st.subheader("Pantry Inventory")
+st.write("Select ingredients to highlight them:")
+
+# Scrollable container with reduced spacing logic
+with st.container(height=280):
     for category, items in PANTRY_ITEMS.items():
-        st.write(f"**{category}**")
-        cols = st.columns(3)
+        st.markdown(f"**{category}**", help=None)
+        # Use more columns to reduce horizontal spacing
+        cols = st.columns(5) 
         for i, item in enumerate(items):
-            if cols[i % 3].button(item, key=f"btn_{item}"):
-                st.session_state.selected_ingredients.add(item)
+            is_selected = item in st.session_state.selected_ingredients
+            # Visual distinction: Orange for selected
+            label = f"🟠 {item}" if is_selected else item
+            
+            if cols[i % 5].button(label, key=f"btn_{item}"):
+                if is_selected:
+                    st.session_state.selected_ingredients.remove(item)
+                else:
+                    st.session_state.selected_ingredients.add(item)
+                st.rerun()
 
-if st.session_state.selected_ingredients:
-    st.info(f"Selected: {', '.join(st.session_state.selected_ingredients)}")
-    if st.button("Reset Selection"):
+# Functional Buttons for Recipe Generation
+col_rec, col_res = st.columns([1, 1])
+with col_rec:
+    generate_recipe = st.button("👨‍🍳 Generate Healthy Recipe", use_container_width=True)
+with col_res:
+    if st.button("Reset Selection", use_container_width=True):
         st.session_state.selected_ingredients = set()
         st.rerun()
 
@@ -98,87 +97,151 @@ for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-user_input = st.chat_input("Type here")
+user_input = st.chat_input("Ask the Nutrition Assistant")
 
-if user_input or (st.session_state.selected_ingredients and st.button("Generate from Selected Items")):
-    
-    # Merge selected ingredients into the final prompt
-    final_prompt = user_input if user_input else "What can I make with these ingredients?"
-    if st.session_state.selected_ingredients:
-        ing_string = ", ".join(st.session_state.selected_ingredients)
-        final_prompt = f"Selected Pantry Items: {ing_string}. \nUser Question: {final_prompt}"
+# Determine which bot is acting
+active_mode = None
+final_prompt = ""
+
+if generate_recipe:
+    if not st.session_state.selected_ingredients:
+        st.warning("Please select some ingredients first!")
+    else:
+        active_mode = "Recipe"
+        ing_list = ", ".join(st.session_state.selected_ingredients)
+        final_prompt = f"Please generate a detailed healthy recipe using: {ing_list}."
+
+elif user_input:
+    active_mode = "Nutrition"
+    final_prompt = user_input
+
+if active_mode:
         
     # Add user message to history
     st.session_state.messages.append({"role": "user", "content": final_prompt})
     with st.chat_message("user"):
         st.write(final_prompt)
 
-    # SAFETY CHECK
-    safety = check_guardrails(final_prompt)
-
-    if safety == "medical":
-        answer = (
-            "I can only provide general nutrition information. "
-            "For medical advice, please speak with a healthcare professional.\n\n"
-            "This information is for general nutrition education and is not medical advice."
-        )
-        with st.chat_message("assistant"):
-            st.write(answer)
-        st.session_state.messages.append({"role": "assistant", "content": answer})
-
-    elif safety == "diet":
-        answer = (
-            "I focus on balanced and healthy eating. Extreme dieting or food restriction "
-            "can be harmful. Try focusing on balanced meals with the foods you have available."
-        )
-        with st.chat_message("assistant"):
-            st.write(answer)
-        st.session_state.messages.append({"role": "assistant", "content": answer})
-
-    else:
-        if bot_mode == "Healthy Recipe Specialist":
-            system_instruction = (
-                        "You are a Professional Chef and Healthy Recipe Specialist. "
-                        "For every recipe: 1. List specific tools needed. 2. Give precise time for each step. "
-                        "3. Be extremely specific on cooking techniques (e.g., 'sauté until translucent, about 4 mins'). "
-                        "Only suggest recipes using the provided ingredients."
-                    )
-        else: #Nutrition Assistant          
-            system_instruction = (
-                "You are a precise, evidence-based Nutrition Intelligence Assistant. "
-                "Suggest simple healthy meals using pantry foods. "
-                "Safety: If medical conditions are mentioned, provide a disclaimer. "
-                "Precision: Use 4 kcal/g for protein/carbs and 9 kcal/g for fats. "
-                "Output Format: Start with a 1-sentence Summary, then a bulleted Breakdown, then a brief 'Why'."
-            )
-        
-        # Build the message history for the payload
-        messages_for_api = [{"role": "system", "content": system_instruction}]
-        for m in st.session_state.messages:
-            messages_for_api.append(m)
-
-        with st.chat_message("assistant"):
-            response_placeholder = st.empty()
-            full_response = ""
+    # GUARDRAIL TRIGGER (Modified: Warn but continue)
+    safety_issue = check_guardrails(final_prompt)
+    if safety_issue == "medical":
+        st.warning("⚠️ Note: I can only provide general nutrition education, not medical advice.")
+    elif safety_issue == "diet":
+        st.warning("⚠️ Note: I focus on balanced eating. Avoid extreme food restriction.")
+    
+    if active_mode == "Recipe":
+        system_instruction = (
+                     "You are a professional chef and healthy recipe specialist.\n\n"
+                     
+                     "GOAL:\n"
+                     "Generate ONE high-quality recipe using ONLY the provided ingredients.\n\n"
             
-            # CALLING THE EXACT PAYLOAD STRUCTURE FROM DOCS
-            chunks = query({
-                "messages": messages_for_api,
-                "model": "Qwen/Qwen2.5-1.5B-Instruct:featherless-ai",
-                "stream": True,
-            })
-
-            if chunks:
-                for chunk in chunks:
-                    # Check if 'choices' exists and has at least one item
-                    if "choices" in chunk and len(chunk["choices"]) > 0:
-                        # Extract content safely
-                        delta = chunk["choices"][0].get("delta", {})
-                        content = delta.get("content", "")
-                        
-                        if content:
-                            full_response += content
-                            response_placeholder.markdown(full_response + "▌")
+                     "STRICT CONSTRAINTS:\n"
+                     "- Do NOT use ingredients not listed unless they are basic pantry staples (salt, pepper, water, oil).\n"
+                     "- If the ingredients are insufficient, adapt creatively but stay within constraints.\n"
+                     "- Do NOT mention missing ingredients—just adapt.\n\n"
+            
+                     "REASONING PROCESS (DO NOT OUTPUT):\n"
+                     "1. Identify the best possible dish from the ingredients.\n"
+                     "2. Choose appropriate cooking techniques.\n"
+                     "3. Optimize for flavor, texture, and simplicity.\n\n"
+            
+                     "OUTPUT FORMAT (STRICT):\n"
+                     "Recipe Name\n"
+                     "Servings: X\n"
+                     "Total Time: X minutes\n\n"
+            
+                     "Tools Needed:\n"
+                     "- tool 1\n"
+                     "- tool 2\n\n"
+            
+                     "Ingredients:\n"
+                     "- ingredient with exact quantity\n\n"
+            
+                     "Instructions:\n"
+                     "1. Step with specific action + technique + time (e.g., sauté onions until translucent, ~4 minutes)\n"
+                     "2. Continue step-by-step with precise timing and detail\n\n"
+            
+                     "Chef Tips:\n"
+                     "- 1–2 short expert tips to improve the dish\n\n"
+            
+                     "STYLE RULES:\n"
+                     "- Be concise but precise\n"
+                     "- Use exact times, temperatures, and textures\n"
+                     "- No vague instructions (avoid 'cook until done')\n"
+        )
+    else: #Nutrition Assistant          
+        system_instruction = (
+                    "You are an evidence-based Nutrition Intelligence Assistant.\n\n"
                 
-                response_placeholder.markdown(full_response)
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    "GOAL:\n"
+                    "Provide clear, accurate, and practical nutrition guidance or meal suggestions.\n\n"
+                
+                    "CORE RULES:\n"
+                    "- Be scientifically accurate and concise\n"
+                    "- Prioritize simple, realistic meals using common pantry foods\n"
+                    "- Avoid extreme diets or unsupported claims\n\n"
+                
+                    "CALCULATION RULES:\n"
+                    "- Protein = 4 kcal/g\n"
+                    "- Carbohydrates = 4 kcal/g\n"
+                    "- Fat = 9 kcal/g\n"
+                    "- Show calorie estimates when relevant\n\n"
+                
+                    "SAFETY RULES:\n"
+                    "- If user mentions a medical condition, allergy, or disease:\n"
+                    "  → Add a brief disclaimer: 'Consult a healthcare professional for personalized advice.'\n"
+                    "- Do NOT diagnose or prescribe treatment\n\n"
+                
+                    "REASONING PROCESS (DO NOT OUTPUT):\n"
+                    "1. Identify user's goal (weight loss, muscle gain, general health, etc.)\n"
+                    "2. Select nutritionally balanced foods\n"
+                    "3. Estimate macros/calories if applicable\n\n"
+                
+                    "OUTPUT FORMAT (STRICT):\n"
+                    "Summary: (1 sentence)\n\n"
+                
+                    "Breakdown:\n"
+                    "- Key nutrients or foods\n"
+                    "- Estimated calories/macros (if applicable)\n"
+                    "- Meal suggestion(s)\n\n"
+                
+                    "Why It Works:\n"
+                    "- Brief scientific explanation (2–3 lines max)\n\n"
+                
+                    "STYLE RULES:\n"
+                    "- Clear, structured, and practical\n"
+                    "- No long paragraphs\n"
+                    "- Avoid jargon unless briefly explained\n"
+        )
+    
+    # Build the message history for the payload
+    messages_for_api = [{"role": "system", "content": system_instruction}]
+    for m in st.session_state.messages:
+        messages_for_api.append(m)
+
+    with st.chat_message("assistant"):
+        response_placeholder = st.empty()
+        full_response = ""
+        
+        # CALLING THE EXACT PAYLOAD STRUCTURE FROM DOCS
+        chunks = query({
+            "messages": messages_for_api,
+            "model": "Qwen/Qwen2.5-1.5B-Instruct:featherless-ai",
+            "stream": True,
+        })
+
+        if chunks:
+            for chunk in chunks:
+                # Check if 'choices' exists and has at least one item
+                if "choices" in chunk and len(chunk["choices"]) > 0:
+                    # Extract content safely
+                    delta = chunk["choices"][0].get("delta", {})
+                    content = delta.get("content", "")
+                    
+                    if content:
+                        full_response += content
+                        response_placeholder.markdown(full_response + "▌")
+            
+            response_placeholder.markdown(full_response)
+            st.session_state.messages.append({"role": "assistant", "content": full_response})

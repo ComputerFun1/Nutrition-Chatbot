@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 import json
-from recipes import PANTRY_RECIPES
+from recipes import PANTRY_ITEMS
 from guardrails import check_guardrails
 
 # --------------------
@@ -13,19 +13,40 @@ st.set_page_config(
     page_icon="🥗"
 )
 
-st.title("🥗 Pantry Nutrition Assistant")
+# --- CUSTOM CSS FOR SCROLLABLE WINDOW ---
+st.markdown("""
+    <style>
+    .scroll-container {
+        height: 300px;
+        overflow-y: scroll;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+    </style>
+    """, unsafe_content_code=True)
 
-st.write(
-    "This assistant helps you make simple meals using common pantry foods."
-)
+# --------------------
+# SIDEBAR - BOT SELECTION
+# --------------------
+with st.sidebar:
+    st.title("Settings")
+    bot_mode = st.radio(
+        "Choose Assistant Mode:",
+        ["Healthy Recipe Specialist", "Nutrition Assistant"],
+        help="Switch between getting detailed recipes or general nutrition advice."
+    )
+    
+    if st.button("Clear Chat"):
+        st.session_state.messages = []
+        st.rerun()
 
-st.caption(
-    "Disclaimer: This information is for general nutrition education and is not medical advice."
-)
+st.title(f"🥗 {bot_mode}")
 
 # --------------------
 # CONFIG & API SETUP
 # --------------------
+
 # FOLLOWING DOCUMENTATION EXACTLY
 API_URL = "https://router.huggingface.co/v1/chat/completions"
 
@@ -54,58 +75,33 @@ def query(payload):
         yield json.loads(line.decode("utf-8").lstrip("data:").rstrip("\n"))
 
 # --------------------
-# SUGGESTED MEAL BUTTONS
+# INGREDIENT SELECTION (Scrollable)
 # --------------------
+st.subheader("Available Pantry Items")
+st.write("Click ingredients to add them to your request:")
 
-st.subheader("Quick Meal Ideas")
+if "selected_ingredients" not in st.session_state:
+    st.session_state.selected_ingredients = set()
 
-col1, col2, col3 = st.columns(3)
+# Scrollable container using Streamlit columns for buttons
+with st.container(height=250):
+    for category, items in PANTRY_ITEMS.items():
+        st.markdown(f"**{category}**")
+        cols = st.columns(4)
+        for i, item in enumerate(items):
+            if cols[i % 4].button(item, key=f"btn_{item}"):
+                st.session_state.selected_ingredients.add(item)
 
-with col1:
-    if st.button("Rice & Beans Meal"):
-        st.write("Cook rice. Warm beans. Add canned vegetables if available.")
+if st.session_state.selected_ingredients:
+    st.info(f"Selected: {', '.join(st.session_state.selected_ingredients)}")
+    if st.button("Reset Selection"):
+        st.session_state.selected_ingredients = set()
+        st.rerun()
 
-with col2:
-    if st.button("Tuna Pasta"):
-        st.write("Cook pasta. Mix with canned tuna and vegetables.")
-
-with col3:
-    if st.button("Peanut Butter Oatmeal"):
-        st.write("Cook oats and stir in peanut butter.")
-
-# --------------------
-# SMART RECIPE GENERATOR
-# --------------------
-
-st.subheader("What foods do you have?")
-
-user_foods = st.text_input(
-    "Enter foods you have (example: rice, beans, tuna)"
-)
-
-def find_recipe(foods):
-    foods_list = [f.strip().lower() for f in foods.split(",")]
-    matches = []
-    for recipe in PANTRY_RECIPES:
-        if all(item in foods_list for item in recipe["ingredients"]):
-            matches.append(recipe)
-    return matches
-
-if st.button("Find Meal Ideas"):
-    recipes = find_recipe(user_foods)
-    if recipes:
-        for r in recipes:
-            st.write(f"### {r['name']}")
-            st.write("Ingredients:", ", ".join(r["ingredients"]))
-            st.write("How to make it:", r["instructions"])
-    else:
-        st.write("No exact match found. Try asking the assistant below!")
 
 # --------------------
 # CHATBOT SECTION
 # --------------------
-
-st.subheader("Ask the Nutrition Assistant")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -116,16 +112,23 @@ for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-user_input = st.chat_input("Ask about meals or pantry foods")
+user_input = st.chat_input("Type here")
 
-if user_input:
+if user_input or (st.session_state.selected_ingredients and st.button("Generate from Selected Items")):
+    
+    # Merge selected ingredients into the final prompt
+    final_prompt = user_input if user_input else "What can I make with these ingredients?"
+    if st.session_state.selected_ingredients:
+        ing_string = ", ".join(st.session_state.selected_ingredients)
+        final_prompt = f"Selected Pantry Items: {ing_string}. \nUser Question: {final_prompt}"
+        
     # Add user message to history
-    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.messages.append({"role": "user", "content": final_prompt})
     with st.chat_message("user"):
-        st.write(user_input)
+        st.write(final_prompt)
 
     # SAFETY CHECK
-    safety = check_guardrails(user_input)
+    safety = check_guardrails(final_prompt)
 
     if safety == "medical":
         answer = (
@@ -147,14 +150,21 @@ if user_input:
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
     else:
-        # Define the system instruction if it's the first message
-        system_instruction = (
-            "You are a precise, evidence-based Nutrition Intelligence Assistant. "
-            "Suggest simple healthy meals using pantry foods. "
-            "Safety: If medical conditions are mentioned, provide a disclaimer. "
-            "Precision: Use 4 kcal/g for protein/carbs and 9 kcal/g for fats. "
-            "Output Format: Start with a 1-sentence Summary, then a bulleted Breakdown, then a brief 'Why'."
-        )
+        if bot_mode == "Healthy Recipe Specialist":
+            system_instruction = (
+                        "You are a Professional Chef and Healthy Recipe Specialist. "
+                        "For every recipe: 1. List specific tools needed. 2. Give precise time for each step. "
+                        "3. Be extremely specific on cooking techniques (e.g., 'sauté until translucent, about 4 mins'). "
+                        "Only suggest recipes using the provided ingredients."
+                    )
+        else: #Nutrition Assistant          
+            system_instruction = (
+                "You are a precise, evidence-based Nutrition Intelligence Assistant. "
+                "Suggest simple healthy meals using pantry foods. "
+                "Safety: If medical conditions are mentioned, provide a disclaimer. "
+                "Precision: Use 4 kcal/g for protein/carbs and 9 kcal/g for fats. "
+                "Output Format: Start with a 1-sentence Summary, then a bulleted Breakdown, then a brief 'Why'."
+            )
         
         # Build the message history for the payload
         messages_for_api = [{"role": "system", "content": system_instruction}]

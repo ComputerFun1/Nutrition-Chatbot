@@ -13,19 +13,6 @@ st.set_page_config(
     page_icon="🥗"
 )
 
-# --- CUSTOM CSS FOR SCROLLABLE WINDOW ---
-st.markdown("""
-    <style>
-    .scroll-container {
-        height: 300px;
-        overflow-y: scroll;
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-    }
-    </style>
-    """, unsafe_content_code=True)
-
 # --------------------
 # SIDEBAR - BOT SELECTION
 # --------------------
@@ -78,18 +65,18 @@ def query(payload):
 # INGREDIENT SELECTION (Scrollable)
 # --------------------
 st.subheader("Available Pantry Items")
-st.write("Click ingredients to add them to your request:")
+st.caption("Click buttons to select items, then type your message below.")
 
 if "selected_ingredients" not in st.session_state:
     st.session_state.selected_ingredients = set()
 
-# Scrollable container using Streamlit columns for buttons
-with st.container(height=250):
+# Native Streamlit scrollable container
+with st.container(height=300):
     for category, items in PANTRY_ITEMS.items():
-        st.markdown(f"**{category}**")
-        cols = st.columns(4)
+        st.write(f"**{category}**")
+        cols = st.columns(3)
         for i, item in enumerate(items):
-            if cols[i % 4].button(item, key=f"btn_{item}"):
+            if cols[i % 3].button(item, key=f"btn_{item}"):
                 st.session_state.selected_ingredients.add(item)
 
 if st.session_state.selected_ingredients:
@@ -97,7 +84,6 @@ if st.session_state.selected_ingredients:
     if st.button("Reset Selection"):
         st.session_state.selected_ingredients = set()
         st.rerun()
-
 
 # --------------------
 # CHATBOT SECTION
